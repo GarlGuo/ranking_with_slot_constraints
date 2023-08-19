@@ -32,7 +32,7 @@ dataset = TMC2007_Dataset(slots_per_label=args.slots_per_label)
 
 
 test_samples = 7077
-print(f"student_num, group_num: {dataset.test_Y_selected.shape}")
+print(f"candidate_num, group_num: {dataset.test_Y_selected.shape}")
 print(f"total attributes count: {dataset.attr_cnt}, total labels count: {len(dataset.labels)}")
 print()
 
@@ -42,20 +42,20 @@ print()
 
 competition = np.sum(dataset.test_Y_selected, axis=0) / dataset.test_slots
 print(f"ground truth competition for each label: {competition}")
-empirical_competition = np.zeros((dataset.r, dataset.selected_label_indices_cnt))
+empirical_competition = np.zeros((dataset.n, dataset.selected_label_indices_cnt))
 
 for i, R in enumerate(dataset.test_R_samples):
     predicted_pos = np.sum(R, axis=0)
-    for slot, label in dataset.ground_truth_slotidx_label_map.items():
+    for slot, label in dataset.ground_truth_slot_idx_label_map.items():
         empirical_competition[i, label] = max(predicted_pos[slot], empirical_competition[i, label])
 
 avg_empirical_competition = np.mean(empirical_competition / dataset.test_slots, axis=0)
-print(f"avg sampled U matrices competition for each label: {avg_empirical_competition}")
+print(f"avg sampled R matrices competition for each label: {avg_empirical_competition}")
 print()
 
 E = np.sum(dataset.test_R_samples, axis=(1, 2))
-avg_density_U_sample = np.mean(E / (np.sum(dataset.test_slots) * dataset.test_samples))
-print(f"avg density of U samples: {avg_density_U_sample:.3f}") # |E| / |V|
+avg_density_R_sample = np.mean(E / (np.sum(dataset.test_slots) * dataset.test_samples))
+print(f"avg density of R samples: {avg_density_R_sample:.3f}") # |E| / |V|
 print()
 
 print(f"slots for each label: {dataset.test_slots}")
@@ -135,6 +135,7 @@ def plot_slot_progress(axes, match_group_comp, ranking_name):
         axes.axvline(x=threshold, color='black', linestyle='dashdot')
         axes.set_xlabel(
             f"min |C|={threshold} ({(threshold / np.sum(dataset.test_slots)).item():.2f} |slots|)", fontsize=8)
+        print(f'{ranking_name} {(threshold / np.sum(dataset.test_slots)).item():.2f}')
     else:
         axes.set_xlabel(f"does not fill slots", fontsize=8)
     axes.set_ylim(0, 100)

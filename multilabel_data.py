@@ -6,12 +6,10 @@ from skmultilearn.dataset import load_dataset
 from sklearn import metrics
 import sklearn.svm
 import sklearn.neural_network
-import random
 import warnings
 import sklearn.calibration
 import os
 from sklearn.model_selection import train_test_split
-import arff
 import pickle
 import sklearn.datasets
 from tqdm.auto import tqdm
@@ -21,12 +19,12 @@ warnings.filterwarnings('always')
 
 
 class MultiLabelDataset:
-    def __init__(self, dataset_name, selected_labels=np.arange(10), r=100,
+    def __init__(self, dataset_name, selected_labels=np.arange(10), n=100,
                  binary_model='binary_LR', allocated_slots=None, prob_caliber='sigmoid', 
                  data_source=None, has_fitted_models=False, pos_mask=True, pos_mask_p=0.4) -> None:
         super().__init__()
         self.dataset_name = dataset_name
-        self.r = r
+        self.n = n
         self.selected_label_indices = selected_labels
         self.selected_label_indices_cnt = len(selected_labels)
 
@@ -56,17 +54,17 @@ class MultiLabelDataset:
         self.fit_binary_model_each_freq_labels(
             binary_model=binary_model, prob_caliber=prob_caliber, has_fitted_models=has_fitted_models)
 
-        self.test_relevance_or = self.compute_qualification_at_least_one_group(
+        self.test_relevance_or = self.compute_relevance_or(
             self.test_pos_probs)
-        self.test_relevance_and = self.compute_qualification_overall(
+        self.test_relevance_and = self.compute_relevance_and(
             self.test_pos_probs)
 
         self.test_slots = np.array(list(allocated_slots[idx] for idx in self.selected_label_indices), dtype=np.int32)
-        self.ground_truth_U_reference, self.prob_R, label_slot_idx_map, self.ground_truth_slotidx_label_map = \
+        self.ground_truth_R_reference, self.prob_R, label_slot_idx_map, self.ground_truth_slot_idx_label_map = \
             self.build_eligibility_matrix(
                 self.test_Y_selected, self.test_slots)
         self.test_R_samples = self.make_R_samples(
-            self.ground_truth_U_reference, label_slot_idx_map, self.test_slots, self.test_pos_probs, self.test_Y_selected)
+            self.ground_truth_R_reference, label_slot_idx_map, self.test_slots, self.test_pos_probs, self.test_Y_selected)
 
     def mask_positive_occurrence(self, pos_mask_p=0.4):
         print(f"trainset nnz before masking {self.train_Y.sum()}")
@@ -94,12 +92,12 @@ class MultiLabelDataset:
         self.test_X = self.test_X[:, keep_loc]
 
     # 1 - prod_j (1 - P(ij != 1)), equivalent impl
-    def compute_qualification_at_least_one_group(self, probs):
+    def compute_relevance_or(self, probs):
         probs[probs > (1 - 1e-10)] = 1 - 1e-10
         return -np.sum(np.log1p(-probs), axis=1)
 
     # prod_j P(ij = 1), equivalent impl
-    def compute_qualification_overall(self, probs):
+    def compute_relevance_and(self, probs):
         probs[probs < 1e-20] = 1e-20
         return np.sum(np.log10(probs), axis=1)
 
@@ -119,14 +117,14 @@ class MultiLabelDataset:
         matching_score = []
         matched_group_composition = np.zeros(
             (len(algo_matching), self.selected_label_indices_cnt))
-        sparse_U_ref = scipy.sparse.csr_array(self.ground_truth_U_reference)
+        sparse_U_ref = scipy.sparse.csr_array(self.ground_truth_R_reference)
         for i in range(len(algo_matching)):
             maximum_matching = scipy.sparse.csgraph.maximum_bipartite_matching(
                 sparse_U_ref[algo_matching[:i + 1], :], perm_type='col')
             matched_slots = np.where(maximum_matching != -1)[0]
             for m_idx in matched_slots:
                 matched_group_composition[i,
-                                          self.ground_truth_slotidx_label_map[m_idx]] += 1
+                                          self.ground_truth_slot_idx_label_map[m_idx]] += 1
             # compute the percentage
             matched_group_composition[i] = 100 * \
                 matched_group_composition[i] / self.test_slots
@@ -171,7 +169,7 @@ class MultiLabelDataset:
     def make_R_samples(self, eligibility_mat, label_slot_idx_map, slot_list, probs, Y):
         if isinstance(Y, np.ndarray):
             is_sparse = False
-            R_samples = np.zeros((self.r, *eligibility_mat.shape))
+            R_samples = np.zeros((self.n, *eligibility_mat.shape))
         else:
             is_sparse = True
             R_samples = []
@@ -179,12 +177,12 @@ class MultiLabelDataset:
             for i in range(Y.shape[0]):
                 for j in range(self.selected_label_indices_cnt):
                     slot_idx = label_slot_idx_map[j]
-                    coins = np.random.binomial(1, p=probs[i, j], size=self.r)
-                    slots = np.zeros((self.r, len(slot_idx)))
+                    coins = np.random.binomial(1, p=probs[i, j], size=self.n)
+                    slots = np.zeros((self.n, len(slot_idx)))
                     slots[:, np.arange(slots.shape[1])] = coins.reshape(len(coins), 1)
                     R_samples[:, i, slot_idx] = slots
         else:
-            for _ in range(self.r):
+            for _ in range(self.n):
                 R = np.zeros((*eligibility_mat.shape,))
                 R_coined_flip = np.random.binomial(1, p=probs)
                 for j in range(self.selected_label_indices_cnt):
@@ -286,16 +284,16 @@ class MultiLabelDataset:
 class TMC2007_Dataset(MultiLabelDataset):
     def __init__(self, selected_labels=[11, 18, 13, 12, 21, 17, 4, 1, 7, 5], r=100, slots_per_label=30) -> None:
         allocated_slots={k : slots_per_label for k in selected_labels}
-        super().__init__('tmc2007_500', selected_labels=selected_labels, r=r,
+        super().__init__('tmc2007_500', selected_labels=selected_labels, n=r,
                          allocated_slots=allocated_slots, prob_caliber='isotonic', pos_mask=True, pos_mask_p=0.2)
 
 
 class MedicalDataset(MultiLabelDataset):
-    def __init__(self, r=100, slots_per_label=5) -> None:
+    def __init__(self, n=100, slots_per_label=5) -> None:
         selected_labels = [4, 32, 0, 9, 41, 31, 24, 31, 23, 44]
         allocated_slots = {k: slots_per_label for k in selected_labels}
         self.dataset_name = 'medical'
-        self.r = r
+        self.n = n
         self.selected_label_indices = selected_labels
         self.selected_label_indices_cnt = len(selected_labels)
 
@@ -326,14 +324,14 @@ class MedicalDataset(MultiLabelDataset):
         self.fit_binary_model_each_freq_labels(
             binary_model='binary_LR', prob_caliber='sigmoid', has_fitted_models=False)
 
-        self.test_relevance_or = self.compute_qualification_at_least_one_group(
+        self.test_relevance_or = self.compute_relevance_or(
             self.test_pos_probs)
-        self.test_relevance_and = self.compute_qualification_overall(
+        self.test_relevance_and = self.compute_relevance_and(
             self.test_pos_probs)
 
         self.test_slots = np.array(
             list(allocated_slots[i] for i in self.selected_label_indices), dtype=np.int32)
-        self.ground_truth_R_reference, self.prob_Q, label_slot_idx_map, self.ground_truth_slotidx_label_map = \
+        self.ground_truth_R_reference, self.prob_R, label_slot_idx_map, self.ground_truth_slot_idx_label_map = \
             self.build_eligibility_matrix(
                 self.test_Y_selected, self.test_slots)
         self.test_R_samples = self.make_R_samples(
@@ -341,30 +339,30 @@ class MedicalDataset(MultiLabelDataset):
 
 
 class BibtexDataset(MultiLabelDataset):
-    def __init__(self, pos_mask_p=0.2, r=100, pos_mask=True, slots_per_group=10) -> None:
+    def __init__(self, pos_mask_p=0.2, n=100, pos_mask=True, slots_per_label=10) -> None:
         # selected_label=[134, 14, 9, 44, 16, 13, 101, 49, 35, 62],
         # allocated_slots = {16: 10, 14: 10, 44: 10, 52: 10,
         #                    63: 10, 83: 10, 117: 10, 131: 10, 134: 30, 13: 10}
         selected_label = [117, 14, 44, 52, 63, 83, 104, 131, 134, 10]
-        allocated_slots = {k: slots_per_group for k in selected_label}
-        super().__init__('bibtex', selected_labels=selected_label, r=r,
+        allocated_slots = {k: slots_per_label for k in selected_label}
+        super().__init__('bibtex', selected_labels=selected_label, n=n,
                          pos_mask=pos_mask, pos_mask_p=pos_mask_p, allocated_slots=allocated_slots)
 
 
 class DeliciousDataset(MultiLabelDataset):
     # 99, 540, 700, 365, 204, 666, 727, 756, 906, 726
-    def __init__(self, r=100, pos_mask=True, pos_mask_p=0.2, slots_per_group=30) -> None:
+    def __init__(self, r=100, pos_mask=True, pos_mask_p=0.2, slots_per_label=30) -> None:
         selected_labels = [946, 941, 924, 897, 809, 700, 733, 540, 452, 99]
-        allocated_slots = {k: slots_per_group for k in selected_labels}
-        super().__init__('delicious', selected_labels=selected_labels, r=r,
+        allocated_slots = {k: slots_per_label for k in selected_labels}
+        super().__init__('delicious', selected_labels=selected_labels, n=r,
                          pos_mask=pos_mask, pos_mask_p=pos_mask_p, allocated_slots=allocated_slots)
 
 
 class Mediamill_Dataset(MultiLabelDataset):
-    def __init__(self, selected_labels=[67, 65, 78, 2, 84, 66, 96, 51, 24, 94], r=100, slots_per_label=30) -> None:
+    def __init__(self, selected_labels=[67, 65, 78, 2, 84, 66, 96, 51, 24, 94], n=100, slots_per_label=30) -> None:
         allocated_slots = {k : slots_per_label for k in selected_labels}
         self.dataset_name = 'mediamill'
-        self.r = r
+        self.n = n
         self.selected_label_indices = selected_labels
         self.selected_label_indices_cnt = len(selected_labels)
 
@@ -395,22 +393,22 @@ class Mediamill_Dataset(MultiLabelDataset):
         self.fit_binary_model_each_freq_labels(
             binary_model='binary_LR', prob_caliber='sigmoid', has_fitted_models=False)
 
-        self.test_relevance_or = self.compute_qualification_at_least_one_group(
+        self.test_relevance_or = self.compute_relevance_or(
             self.test_pos_probs)
-        self.test_relevance_and = self.compute_qualification_overall(
+        self.test_relevance_and = self.compute_relevance_and(
             self.test_pos_probs)
 
         self.test_slots = np.array(
             list(allocated_slots[i] for i in self.selected_label_indices), dtype=np.int32)
-        self.ground_truth_U_reference, self.prob_Q, label_slot_idx_map, self.ground_truth_slotidx_label_map = \
+        self.ground_truth_R_reference, self.prob_R, label_slot_idx_map, self.ground_truth_slot_idx_label_map = \
             self.build_eligibility_matrix(
                 self.test_Y_selected, self.test_slots)
         self.test_R_samples = self.make_R_samples(
-            self.ground_truth_U_reference, label_slot_idx_map, self.test_slots, self.test_pos_probs, self.test_Y_selected)
+            self.ground_truth_R_reference, label_slot_idx_map, self.test_slots, self.test_pos_probs, self.test_Y_selected)
 
 
 class BookmarksDataset(MultiLabelDataset):
-    def __init__(self, selected_labels=[20, 163, 151, 144, 145, 109, 57, 89, 92, 87], r=100, slots_per_label=30) -> None:
+    def __init__(self, selected_labels=[20, 163, 151, 144, 145, 109, 57, 89, 92, 87], n=100, slots_per_label=30) -> None:
         # allocated_slots = {20: 40, 163: 20, 151: 30, 144: 20,
         #                    145: 20, 109: 25, 57: 20, 89: 25, 92: 25, 87: 25}
         allocated_slots = {k: slots_per_label for k in selected_labels}
@@ -428,5 +426,5 @@ class BookmarksDataset(MultiLabelDataset):
         test_X = scipy.sparse.load_npz(
             f'data{os.sep}bookmarks{os.sep}test_X.npz')
         test_Y = np.load(f'data{os.sep}bookmarks{os.sep}test_Y.npy')
-        super().__init__('bookmarks', selected_labels=selected_labels, r=r, allocated_slots=allocated_slots, data_source=[
+        super().__init__('bookmarks', selected_labels=selected_labels, n=n, allocated_slots=allocated_slots, data_source=[
             train_X, train_Y, test_X, test_Y], prob_caliber='sigmoid', binary_model='binary_LR_large', pos_mask=True, pos_mask_p=0.2)

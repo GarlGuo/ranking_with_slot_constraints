@@ -3,9 +3,10 @@ import scipy.sparse
 import os
 import pandas as pd
 from collections import Counter
+from general_experiment import GeneralExperiment
 
 
-class AdmissionExp:
+class AdmissionExp(GeneralExperiment):
     def __init__(self, n, slot_cnt=30, slot_num_low_limit_ratio=0.3, R_max_clip=0.3) -> None:
         super().__init__()
         np.random.seed(0)
@@ -23,7 +24,6 @@ class AdmissionExp:
         self.n = n
         self.major_map = major_map
         self.slot_map = slot_map
-        # excluded_major_list = ['M11', 'M13']
       
         self.num_major = len(self.major_map)
         self.num_slots = sum(self.slot_map.values())
@@ -32,12 +32,12 @@ class AdmissionExp:
         PR = np.array(df["Model 1 pred"])
         PR = np.clip(PR, 1e-3, R_max_clip)
 
-        self.student_major_matrix = np.zeros((self.candidate_num, self.num_major), dtype=np.int32)
-        self.pr_assignment         = np.zeros((self.candidate_num,))
-        self.test_Y               = np.zeros((self.candidate_num,), dtype=np.int32)
+        self.candidate_major_matrix = np.zeros((self.candidate_num, self.num_major), dtype=np.int32)
+        self.pr_assignment          = np.zeros((self.candidate_num,))
+        self.test_Y                 = np.zeros((self.candidate_num,), dtype=np.int32)
         for i, line in df.iterrows():
             # if line['Major'] in excluded_major_list: continue
-            self.student_major_matrix[i, self.major_map[line['Major']]] = 1
+            self.candidate_major_matrix[i, self.major_map[line['Major']]] = 1
             self.pr_assignment[i] = PR[i]
             self.test_Y[i]       = admitted_outcome[i]
                 
@@ -45,7 +45,7 @@ class AdmissionExp:
         for m, idx in self.major_map.items():
             self.slot_list[idx] = self.slot_map[m]
 
-        self.build_eligibility_matrix(self.student_major_matrix, self.slot_list)
+        self.build_eligibility_matrix(self.candidate_major_matrix, self.slot_list)
         self.R_samples = []
 
         for i in range(self.n):

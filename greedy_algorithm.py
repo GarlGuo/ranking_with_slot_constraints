@@ -41,10 +41,10 @@ class MatchRankRanker(Ranker):
         matched_slots = scipy.sparse.csgraph.maximum_bipartite_matching(sparse_biadj_graph, perm_type='row')
         return np.sum(matched_slots != -1)
 
-    def evaluate_matching_size(self, app_list):
+    def evaluate_matching_size(self, candidate_list):
         matching_score = 0
         for i in range(self.n): 
-            matching_score += self.matching_size(self.R_sparse_list[i][app_list, :])
+            matching_score += self.matching_size(self.R_sparse_list[i][candidate_list, :])
         matching_score /= self.n
         return matching_score
 
@@ -61,6 +61,7 @@ class MatchRankRanker(Ranker):
         pq = MaxPriorityQueue()
         
         if k is None: k = self.candidate_num
+        k = min(self.candidate_num, k)
         counter = tqdm(range(k), mininterval=5)
 
         for j in range(self.candidate_num): # loop over all candidates
@@ -137,7 +138,6 @@ class StochasticGreedyRanker(Ranker):
                 candidate_score = self.evaluate_matching_size(self.union(ranking, c))
                 if best_score_sofar < candidate_score:
                     best_candidate_sofar = c 
-                    best_score_sofar = candidate_score
                     best_score_sofar = candidate_score
 
             ranking.append(best_candidate_sofar)

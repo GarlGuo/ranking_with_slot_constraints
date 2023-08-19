@@ -11,9 +11,9 @@ import warnings
 import argparse
 
 
-parser = argparse.ArgumentParser(description="ranking with bookmarks dataset")
+parser = argparse.ArgumentParser(description="ranking with mediamill dataset")
 parser.add_argument(
-    "--slots_per_group",
+    "--slots_per_label",
     type=int,
     default=30
 )
@@ -28,7 +28,7 @@ np.set_printoptions(precision=3)
 
 graph_dir = f'graph{os.sep}multilabel-graph{os.sep}mediamill'
 
-dataset = Mediamill_Dataset(slots_per_label=args.slots_per_group)
+dataset = Mediamill_Dataset(slots_per_label=args.slots_per_label)
 
 
 test_samples = dataset.test_samples
@@ -45,24 +45,24 @@ print()
 competition = np.sum(dataset.test_Y_selected, axis=0) / dataset.test_slots
 print(f"ground truth competition for each label: {competition}")
 empirical_competition = np.zeros(
-    (dataset.r, dataset.selected_label_indices_cnt))
+    (dataset.n, dataset.selected_label_indices_cnt))
 
 for i, U in enumerate(dataset.test_R_samples):
     predicted_pos = np.sum(U, axis=0)
-    for slot, label in dataset.ground_truth_slotidx_label_map.items():
+    for slot, label in dataset.ground_truth_slot_idx_label_map.items():
         empirical_competition[i, label] = max(
             predicted_pos[slot], empirical_competition[i, label])
 
 avg_empirical_competition = np.mean(
     empirical_competition / dataset.test_slots, axis=0)
 print(
-    f"avg sampled U matrices competition for each label: {avg_empirical_competition}")
+    f"avg sampled R matrices competition for each label: {avg_empirical_competition}")
 print()
 
 E = np.sum(dataset.test_R_samples, axis=(1, 2))
 avg_density_R_sample = np.mean(
     E / (np.sum(dataset.test_slots) * dataset.test_samples))
-print(f"avg density of U samples: {avg_density_R_sample:.3f}")  # |E| / |V|
+print(f"avg density of R samples: {avg_density_R_sample:.3f}")  # |E| / |V|
 print()
 
 print(f"slots for each label: {dataset.test_slots}")
@@ -166,6 +166,6 @@ plot_slot_progress(axes[5], random_match_group_comp, random_rank_name)
 axes[5].legend()
 fig.supylabel("Percentage of Filled Slots", fontsize=12)
 fig.suptitle(
-    f"Mediamill Dataset ({args.slots_per_group} Slots Per Label)", fontsize=14)
+    f"Mediamill Dataset ({args.slots_per_label} Slots Per Label)", fontsize=14)
 fig.tight_layout()
-fig.savefig(f"{graph_dir}{os.sep}group-ratio-{args.slots_per_group}.png")
+fig.savefig(f"{graph_dir}{os.sep}group-ratio-{args.slots_per_label}.png")

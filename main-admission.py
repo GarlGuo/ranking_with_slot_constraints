@@ -6,7 +6,7 @@ from admission_data import *
 import argparse
 
 
-parser = argparse.ArgumentParser(description="ranking with admission dataset")
+parser = argparse.ArgumentParser(description="ranking with college admission dataset")
 parser.add_argument(
     "--slots_count",
     type=int,
@@ -15,7 +15,7 @@ parser.add_argument(
 parser.add_argument(
     "--n",
     type=int,
-    default=10,
+    default=100,
 )
 parser.add_argument(
     "--slot_num_low_limit_ratio",
@@ -46,7 +46,7 @@ NTR_ranker                 = NTR_Ranker(exp.R_samples)
 random_ranker              = RandomRanker(exp.R_samples)
 PR_ranker                  = RelevanceRanker(exp.pr_assignment)
 
-slots_for_candidates = exp.slot_list[exp.student_major_matrix.nonzero()[1]]
+slots_for_candidates = exp.slot_list[exp.candidate_major_matrix.nonzero()[1]]
 
 
 TR_ranking                 = TR_ranker.rank()
