@@ -82,14 +82,6 @@ random_ranking         = random_ranker.rank()
 PR_and_ranking         = relevance_and_ranker.rank()
 PR_or_ranking          = relevance_or_ranker.rank()
 
-match_rank_train_score = dataset.compute_avg_matching_size(match_ranking[:700])
-TB_train_score         = dataset.compute_avg_matching_size(TR_ranking[:700])
-NTB_train_score        = dataset.compute_avg_matching_size(NTR_ranking[:700])
-random_train_score     = dataset.compute_avg_matching_size(random_ranking[:700])
-PQ_and_train_score     = dataset.compute_avg_matching_size(PR_and_ranking[:700])
-PQ_or_train_score      = dataset.compute_avg_matching_size(PR_or_ranking[:700])
-
-
 match_rank_name        = 'MatchRank'
 TR_rank_name           = 'Total Relevance'
 NTR_rank_name          = 'Normalized Total Relevance'

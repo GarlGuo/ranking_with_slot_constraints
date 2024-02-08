@@ -340,9 +340,6 @@ class MedicalDataset(MultiLabelDataset):
 
 class BibtexDataset(MultiLabelDataset):
     def __init__(self, pos_mask_p=0.2, n=100, pos_mask=True, slots_per_label=10) -> None:
-        # selected_label=[134, 14, 9, 44, 16, 13, 101, 49, 35, 62],
-        # allocated_slots = {16: 10, 14: 10, 44: 10, 52: 10,
-        #                    63: 10, 83: 10, 117: 10, 131: 10, 134: 30, 13: 10}
         selected_label = [117, 14, 44, 52, 63, 83, 104, 131, 134, 10]
         allocated_slots = {k: slots_per_label for k in selected_label}
         super().__init__('bibtex', selected_labels=selected_label, n=n,
@@ -350,7 +347,6 @@ class BibtexDataset(MultiLabelDataset):
 
 
 class DeliciousDataset(MultiLabelDataset):
-    # 99, 540, 700, 365, 204, 666, 727, 756, 906, 726
     def __init__(self, r=100, pos_mask=True, pos_mask_p=0.2, slots_per_label=30) -> None:
         selected_labels = [946, 941, 924, 897, 809, 700, 733, 540, 452, 99]
         allocated_slots = {k: slots_per_label for k in selected_labels}
@@ -409,8 +405,6 @@ class Mediamill_Dataset(MultiLabelDataset):
 
 class BookmarksDataset(MultiLabelDataset):
     def __init__(self, selected_labels=[20, 163, 151, 144, 145, 109, 57, 89, 92, 87], n=100, slots_per_label=30) -> None:
-        # allocated_slots = {20: 40, 163: 20, 151: 30, 144: 20,
-        #                    145: 20, 109: 25, 57: 20, 89: 25, 92: 25, 87: 25}
         allocated_slots = {k: slots_per_label for k in selected_labels}
         with open(f'data{os.sep}bookmarks{os.sep}attributes.pickle', 'rb') as f:
             self.attributes = pickle.load(f)

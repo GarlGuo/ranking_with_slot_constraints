@@ -61,13 +61,13 @@ basic_name = f"admission-slots-{slots}-slot_num_low_limit_ratio-{args.slot_num_l
 
 match_rank_test_score  = exp.compute_test_matching_score_and_groups(greedy_ranking)[0]
 TR_test_score          = exp.compute_test_matching_score_and_groups(TR_ranking)[0]
-NTB_test_score         = exp.compute_test_matching_score_and_groups(NTR_ranking)[0]
+NTR_test_score         = exp.compute_test_matching_score_and_groups(NTR_ranking)[0]
 PR_test_score          = exp.compute_test_matching_score_and_groups(PR_ranking)[0]
 random_test_score      = exp.compute_test_matching_score_and_groups(random_ranking)[0]
 
 match_rank_name        = 'MatchRank'
 TB_rank_name           = 'Total Relevance'
-NTB_rank_name          = 'Normalized Total Relevance'
+NTR_rank_name          = 'Normalized Total Relevance'
 PQ_rank_name           = 'P(R)'
 random_rank_name       = 'Random'
 
@@ -79,6 +79,6 @@ def compute_avg_min_shortlist(test_score):
 
 print(f'match rank {compute_avg_min_shortlist(match_rank_test_score)}')
 print(f'TR {compute_avg_min_shortlist(TR_test_score)}')
-print(f'NTR {compute_avg_min_shortlist(NTB_test_score)}')
+print(f'NTR {compute_avg_min_shortlist(NTR_test_score)}')
 print(f'P(R) {compute_avg_min_shortlist(PR_test_score)}')
 print(f'random {compute_avg_min_shortlist(random_test_score)}')
